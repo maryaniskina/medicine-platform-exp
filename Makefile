@@ -1,3 +1,5 @@
+.PHONY: tests
+
 DOCKER_WEB := docker compose exec web
 UV := uv run
 EXEC_IN_WEB := $(DOCKER_WEB) $(UV)
@@ -6,12 +8,18 @@ MANAGE_PY := python manage.py
 check-django:
 	$(EXEC_IN_WEB) $(MANAGE_PY) check
 
-makemigrations:
+migrations:
 	$(EXEC_IN_WEB) $(MANAGE_PY) makemigrations
 
 migrate:
 	$(EXEC_IN_WEB) $(MANAGE_PY) migrate
 
 linter:
-	uv run ruff check .
-	uv run ruff format --check .
+	$(UV) ruff check .
+
+linter-fix:
+	$(UV) ruff check . --fix
+	$(UV) ruff format .
+
+tests:
+	$(EXEC_IN_WEB) pytest apps/accounts/tests -v
