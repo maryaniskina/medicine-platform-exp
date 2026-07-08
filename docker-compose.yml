@@ -1,0 +1,140 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-medbook}
+      POSTGRES_USER: ${POSTGRES_USER:-medbook}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medbook_dev_password}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-medbook}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-medbook_dev_password}
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    build: .
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: >-
+        amqp://${RABBITMQ_USER:-medbook}:${RABBITMQ_PASSWORD:-medbook_dev_password}@rabbitmq:5672//
+    command: uv run --frozen python manage.py migrate --noinput
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - medbook_venv:/app/.venv
+    restart: "no"
+
+  web:
+    build: .
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      # REDIS_URL: redis://redis:6379/0
+      # CELERY_BROKER_URL: >-
+      #   amqp://${RABBITMQ_USER:-medbook}:${RABBITMQ_PASSWORD:-medbook_dev_password}@rabbitmq:5672//
+    command: uv run --frozen python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - medbook_venv:/app/.venv
+    restart: unless-stopped
+
+  celery_worker:
+    build: .
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: >-
+        amqp://${RABBITMQ_USER:-medbook}:${RABBITMQ_PASSWORD:-medbook_dev_password}@rabbitmq:5672//
+    command: uv run --frozen celery -A config worker --loglevel=info
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - medbook_venv:/app/.venv
+    restart: unless-stopped
+
+  celery_beat:
+    build: .
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: >-
+        amqp://${RABBITMQ_USER:-medbook}:${RABBITMQ_PASSWORD:-medbook_dev_password}@rabbitmq:5672//
+    command: uv run --frozen celery -A config beat --loglevel=info
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - medbook_venv:/app/.venv
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  medbook_venv:
