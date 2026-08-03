@@ -16,6 +16,7 @@ urlpatterns = [
     path('health/', health_check, name='health-check'),
     path('admin/', admin.site.urls),
     path('api/accounts/', include('apps.accounts.urls')),
+    path('api/clinics/', include('apps.clinics.urls')),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path(
         'api/docs/',
