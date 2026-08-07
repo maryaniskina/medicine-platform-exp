@@ -133,6 +133,16 @@ services:
       - medbook_venv:/app/.venv
     restart: unless-stopped
 
+  consumer:
+    build: .
+    command: uv run python manage.py consume_events
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

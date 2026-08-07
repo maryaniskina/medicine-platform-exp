@@ -10,8 +10,10 @@ dependencies = [
     "django-celery-beat==2.1.0",
     "django-redis==7.0.0",
     "djangorestframework==3.18.3",
-    "drf-spectacular>=0.30.0",
+    "drf-spectacular==0.30.0",
+    "pika==1.4.4",
     "psycopg[binary]==3.3.6",
+    "pydantic>=2.14.1",
     "python-dotenv==1.2.4",
 ]
 

@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'apps.scheduling.apps.SchedulingConfig',
     'apps.appointments.apps.AppointmentsConfig',
     'apps.notifications.apps.NotificationsConfig',
+    'apps.events.apps.EventsConfig',
 ]
 
 MIDDLEWARE = [
