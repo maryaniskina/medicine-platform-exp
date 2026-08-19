@@ -42,8 +42,7 @@ class ClinicListView(ListAPIView):
 
         if search:
             queryset = queryset.filter(
-                Q(name__icontains=search)
-                | Q(address__icontains=search)
+                Q(name__icontains=search) | Q(address__icontains=search)
             )
 
         return queryset.order_by('name')

@@ -1,96 +1,69 @@
-from decimal import Decimal, InvalidOperation
-
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
+from pydantic import ValidationError
 
 from apps.clinics.models import Clinic
+from apps.clinics.services.schemas import ClinicEvent, ClinicEventData
 from apps.events.exceptions import PermanentEventError
 from apps.events.models import ProcessedMessage
 
 
-class ClinicEventError(ValueError):
+class ClinicEventError(PermanentEventError):
     pass
 
 
 def parse_clinic_data(data: dict) -> dict:
-    required_fields = {
-        'external_id',
-        'name',
-        'address',
-        'latitude',
-        'longitude',
-    }
-    if not required_fields.issubset(data):
-        raise ClinicEventError('Missing required clinic fields')
-
-    for field in ('external_id', 'name', 'address'):
-        value = data[field]
-        if not isinstance(value, str) or not value.strip():
-            raise ClinicEventError(f'{field} must be a non-empty string')
-
     try:
-        latitude = Decimal(str(data['latitude']))
-        longitude = Decimal(str(data['longitude']))
-    except (InvalidOperation, ValueError):
-        raise ClinicEventError('Invalid coordinates') from None
+        clinic_data = ClinicEventData.model_validate(data)
+    except ValidationError as exc:
+        raise ClinicEventError('Invalid clinic data') from exc
 
-    if not latitude.is_finite() or not longitude.is_finite():
-        raise ClinicEventError('Coordinates must be finite numbers')
+    return clinic_data.model_dump()
 
-    if not -90 <= latitude <= 90:
-        raise ClinicEventError('Latitude must be between -90 and 90')
 
-    if not -180 <= longitude <= 180:
-        raise ClinicEventError('Longitude must be between -180 and 180')
+def parse_clinic_event(payload: dict) -> ClinicEvent:
+    try:
+        return ClinicEvent.model_validate(payload)
+    except ValidationError as exc:
+        raise ClinicEventError('Invalid clinic event payload') from exc
 
-    clinic_data = {
-        'name': data['name'].strip(),
-        'address': data['address'].strip(),
-        'latitude': latitude,
-        'longitude': longitude,
-    }
 
-    for field in ('phone', 'email'):
-        value = data.get(field, '')
-        if not isinstance(value, str):
-            raise ClinicEventError(f'{field} must be a string')
-        clinic_data[field] = value
+def validate_clinic(clinic: Clinic) -> None:
+    try:
+        clinic.full_clean()
+    except DjangoValidationError as exc:
+        if hasattr(exc, 'message_dict') and 'external_id' in exc.message_dict:
+            raise PermanentEventError(str(exc)) from exc
 
-    if 'is_active' in data:
-        if not isinstance(data['is_active'], bool):
-            raise ClinicEventError('is_active must be a boolean')
-        clinic_data['is_active'] = data['is_active']
-
-    return {
-        'external_id': data['external_id'].strip(),
-        **clinic_data,
-    }
+        raise ClinicEventError(str(exc)) from exc
 
 
 @transaction.atomic
-def process_clinic_event(event: dict) -> bool:
-    event_id = event['event_id']
-    event_type = event['event_type']
-    clinic_data = parse_clinic_data(event['data'])
-    external_id = clinic_data.pop('external_id')
+def process_clinic_event(payload: dict) -> bool:
+    event = parse_clinic_event(payload)
 
     try:
         with transaction.atomic():
-            ProcessedMessage.objects.create(event_id=event_id)
+            ProcessedMessage.objects.create(event_id=event.event_id)
     except IntegrityError:
-        if ProcessedMessage.objects.filter(event_id=event_id).exists():
+        if ProcessedMessage.objects.filter(
+            event_id=event.event_id,
+        ).exists():
             return False
         raise
 
-    if event_type == 'clinic.created':
-        clinic = Clinic(external_id=external_id, **clinic_data)
+    clinic_data = event.data.model_dump(exclude_unset=True)
+    external_id = clinic_data.pop('external_id')
 
-        try:
-            clinic.full_clean()
-        except DjangoValidationError as exc:
-            if 'external_id' in exc.message_dict:
-                raise PermanentEventError(str(exc)) from exc
-            raise ClinicEventError(str(exc)) from exc
+    if clinic_data.get('email'):
+        clinic_data['email'] = str(clinic_data['email']).lower()
+
+    if event.event_type == 'clinic.created':
+        clinic = Clinic(
+            external_id=external_id,
+            **clinic_data,
+        )
+        validate_clinic(clinic)
 
         try:
             clinic.save(force_insert=True)
@@ -99,7 +72,7 @@ def process_clinic_event(event: dict) -> bool:
                 'Clinic with this external_id already exists'
             ) from exc
 
-    elif event_type == 'clinic.updated':
+    elif event.event_type == 'clinic.updated':
         try:
             clinic = Clinic.objects.select_for_update().get(
                 external_id=external_id,
@@ -112,13 +85,7 @@ def process_clinic_event(event: dict) -> bool:
         for field, value in clinic_data.items():
             setattr(clinic, field, value)
 
-        try:
-            clinic.full_clean()
-        except DjangoValidationError as exc:
-            if 'external_id' in exc.message_dict:
-                raise PermanentEventError(str(exc)) from exc
-            raise ClinicEventError(str(exc)) from exc
-
+        validate_clinic(clinic)
         clinic.save()
 
     else:
