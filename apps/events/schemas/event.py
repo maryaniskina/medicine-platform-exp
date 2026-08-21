@@ -1,5 +1,12 @@
 from typing import Any
 
+SUPPORTED_EVENT_TYPES = {
+    'clinic.created',
+    'clinic.updated',
+    'doctor.created',
+    'doctor.updated',
+}
+
 
 class EventValidationError(ValueError):
     pass
@@ -16,7 +23,7 @@ def validate_event(payload: Any) -> dict:
     if not isinstance(payload['event_id'], str) or not payload['event_id'].strip():
         raise EventValidationError('event_id must be a non-empty string')
 
-    if payload['event_type'] not in {'clinic.created', 'clinic.updated'}:
+    if payload['event_type'] not in SUPPORTED_EVENT_TYPES:
         raise EventValidationError('Unsupported event_type')
 
     if payload['version'] != 1:

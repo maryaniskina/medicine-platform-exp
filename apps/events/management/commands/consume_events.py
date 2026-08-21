@@ -1,4 +1,3 @@
-
 import json
 import logging
 import os
@@ -7,7 +6,11 @@ import pika
 from django.core.management.base import BaseCommand
 
 from apps.clinics.services.events import ClinicEventError
-from apps.common.rabbitmq.topology import (
+from apps.doctors.services.events import DoctorEventError
+from apps.events.dispatcher import dispatch_event
+from apps.events.exceptions import PermanentEventError
+from apps.events.schemas.event import EventValidationError
+from common.rabbitmq.topology import (
     DLQ_NAME,
     DLX_NAME,
     EXCHANGE_NAME,
@@ -17,9 +20,6 @@ from apps.common.rabbitmq.topology import (
     RETRY_EXCHANGE_NAME,
     RETRY_QUEUE_NAME,
 )
-from apps.events.dispatcher import dispatch_event
-from apps.events.exceptions import PermanentEventError
-from apps.events.schemas.event import EventValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ PERMANENT_ERRORS = (
     EventValidationError,
     ClinicEventError,
     PermanentEventError,
+    DoctorEventError,
 )
 
 
@@ -238,9 +239,7 @@ class Command(BaseCommand):
                 auto_ack=False,
             )
 
-            self.stdout.write(
-                self.style.SUCCESS('Waiting for RabbitMQ events...')
-            )
+            self.stdout.write(self.style.SUCCESS('Waiting for RabbitMQ events...'))
             channel.start_consuming()
         except KeyboardInterrupt:
             self.stdout.write('Stopping RabbitMQ consumer...')
