@@ -13,7 +13,7 @@ dependencies = [
     "drf-spectacular==0.30.0",
     "pika==1.4.4",
     "psycopg[binary]==3.3.6",
-    "pydantic>=2.14.1",
+    "pydantic[email]>=2.14.1",
     "python-dotenv==1.2.4",
 ]
 
