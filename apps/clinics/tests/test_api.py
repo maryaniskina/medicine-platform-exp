@@ -5,7 +5,6 @@ from rest_framework.test import APIClient
 
 from apps.clinics.models import Clinic
 
-
 BASE_URL = '/api/clinics/'
 
 

@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 import pytest
-from django.core.exceptions import ValidationError
 
 from apps.clinics.models import Clinic
 from apps.clinics.services.events import (
