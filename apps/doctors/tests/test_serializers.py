@@ -1,7 +1,5 @@
 import pytest
 
-from apps.clinics.models import Clinic
-from apps.doctors.models import Doctor, DoctorClinic, Specialization
 from apps.doctors.serializers import (
     DoctorClinicSerializer,
     DoctorDetailSerializer,
@@ -10,49 +8,12 @@ from apps.doctors.serializers import (
 )
 
 
-@pytest.fixture
-def clinic(db):
-    return Clinic.objects.create(
-        external_id='clinic-001',
-        name='Клиника № 1',
-        address='Москва, Тверская улица, 1',
-        latitude='55.765123',
-        longitude='37.605678',
-    )
-
-
-@pytest.fixture
-def specialization(db):
-    return Specialization.objects.create(
-        name='Кардиология',
-        description='Диагностика заболеваний сердца',
-    )
-
-
-@pytest.fixture
-def doctor(db, specialization):
-    doctor = Doctor.objects.create(
-        external_id='doctor-001',
-        first_name='Иван',
-        last_name='Иванов',
-        middle_name='Иванович',
-        photo_url='https://example.com/doctor.jpg',
-        description='Опытный врач-кардиолог',
-        years_of_experience=10,
-    )
-    doctor.specializations.add(specialization)
-    return doctor
-
-
 @pytest.mark.django_db
 class TestSpecializationSerializer:
     def test_serializes_public_fields(self, specialization):
         data = SpecializationSerializer(specialization).data
 
-        assert data == {
-            'id': specialization.pk,
-            'name': 'Кардиология',
-        }
+        assert data == {'id': specialization.pk, 'name': 'Кардиология'}
 
     def test_does_not_expose_internal_fields(self, specialization):
         data = SpecializationSerializer(specialization).data
@@ -65,10 +26,15 @@ class TestSpecializationSerializer:
 
 @pytest.mark.django_db
 class TestDoctorClinicSerializer:
-    def test_serializes_public_fields(self, doctor, clinic):
-        assignment = DoctorClinic.objects.create(
-            doctor=doctor,
-            clinic=clinic,
+    def test_serializes_public_fields(
+        self,
+        doctor,
+        clinic,
+        doctor_clinic_factory,
+    ):
+        assignment = doctor_clinic_factory(
+            doctor,
+            clinic,
             price='2500.00',
             duration_minutes=45,
         )
@@ -77,28 +43,31 @@ class TestDoctorClinicSerializer:
 
         assert data == {
             'clinic_id': clinic.pk,
-            'clinic_name': 'Клиника № 1',
-            'clinic_address': 'Москва, Тверская улица, 1',
+            'clinic_name': clinic.name,
+            'clinic_address': clinic.address,
             'price': '2500.00',
             'duration_minutes': 45,
         }
 
-    def test_serializes_unknown_price(self, doctor, clinic):
-        assignment = DoctorClinic.objects.create(
-            doctor=doctor,
-            clinic=clinic,
-            price=None,
-        )
+    def test_serializes_unknown_price(
+        self,
+        doctor,
+        clinic,
+        doctor_clinic_factory,
+    ):
+        assignment = doctor_clinic_factory(doctor, clinic, price=None)
 
         data = DoctorClinicSerializer(assignment).data
 
         assert data['price'] is None
 
-    def test_does_not_expose_internal_fields(self, doctor, clinic):
-        assignment = DoctorClinic.objects.create(
-            doctor=doctor,
-            clinic=clinic,
-        )
+    def test_does_not_expose_internal_fields(
+        self,
+        doctor,
+        clinic,
+        doctor_clinic_factory,
+    ):
+        assignment = doctor_clinic_factory(doctor, clinic)
 
         data = DoctorClinicSerializer(assignment).data
 
@@ -110,7 +79,7 @@ class TestDoctorClinicSerializer:
 
 @pytest.mark.django_db
 class TestDoctorListSerializer:
-    def test_serializes_public_fields(self, doctor):
+    def test_serializes_public_fields(self, doctor, specialization):
         data = DoctorListSerializer(doctor).data
 
         assert data == {
@@ -121,10 +90,7 @@ class TestDoctorListSerializer:
             'photo_url': 'https://example.com/doctor.jpg',
             'years_of_experience': 10,
             'specializations': [
-                {
-                    'id': doctor.specializations.get().pk,
-                    'name': 'Кардиология',
-                },
+                {'id': specialization.pk, 'name': specialization.name},
             ],
         }
 
@@ -136,18 +102,19 @@ class TestDoctorListSerializer:
 
         assert data['middle_name'] == ''
 
-    def test_serializes_multiple_specializations(self, doctor):
-        therapy = Specialization.objects.create(name='Терапия')
+    def test_serializes_multiple_specializations(
+        self,
+        doctor,
+        specialization_factory,
+    ):
+        therapy = specialization_factory(name='Терапия')
         doctor.specializations.add(therapy)
 
         data = DoctorListSerializer(doctor).data
 
         assert data['specializations'] == [
-            {
-                'id': specialization.pk,
-                'name': specialization.name,
-            }
-            for specialization in doctor.specializations.order_by('name')
+            {'id': item.pk, 'name': item.name}
+            for item in doctor.specializations.order_by('name')
         ]
 
     def test_does_not_expose_internal_fields(self, doctor):
@@ -162,10 +129,15 @@ class TestDoctorListSerializer:
 
 @pytest.mark.django_db
 class TestDoctorDetailSerializer:
-    def test_serializes_doctor_with_clinic(self, doctor, clinic):
-        DoctorClinic.objects.create(
-            doctor=doctor,
-            clinic=clinic,
+    def test_serializes_doctor_with_clinic(
+        self,
+        doctor,
+        clinic,
+        doctor_clinic_factory,
+    ):
+        doctor_clinic_factory(
+            doctor,
+            clinic,
             price='2500.00',
             duration_minutes=45,
         )
@@ -177,8 +149,8 @@ class TestDoctorDetailSerializer:
         assert data['clinics'] == [
             {
                 'clinic_id': clinic.pk,
-                'clinic_name': 'Клиника № 1',
-                'clinic_address': 'Москва, Тверская улица, 1',
+                'clinic_name': clinic.name,
+                'clinic_address': clinic.address,
                 'price': '2500.00',
                 'duration_minutes': 45,
             },
@@ -189,19 +161,25 @@ class TestDoctorDetailSerializer:
 
         assert data['clinics'] == []
 
-    def test_excludes_inactive_assignments(self, doctor, clinic):
-        DoctorClinic.objects.create(
-            doctor=doctor,
-            clinic=clinic,
-            is_active=False,
-        )
+    def test_excludes_inactive_assignments(
+        self,
+        doctor,
+        clinic,
+        doctor_clinic_factory,
+    ):
+        doctor_clinic_factory(doctor, clinic, is_active=False)
 
         data = DoctorDetailSerializer(doctor).data
 
         assert data['clinics'] == []
 
-    def test_excludes_inactive_clinics(self, doctor, clinic):
-        DoctorClinic.objects.create(doctor=doctor, clinic=clinic)
+    def test_excludes_inactive_clinics(
+        self,
+        doctor,
+        clinic,
+        doctor_clinic_factory,
+    ):
+        doctor_clinic_factory(doctor, clinic)
         clinic.is_active = False
         clinic.save(update_fields=['is_active'])
 

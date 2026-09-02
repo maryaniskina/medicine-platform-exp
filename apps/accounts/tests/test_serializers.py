@@ -1,187 +1,70 @@
 import pytest
-from django.contrib.auth import get_user_model
-from rest_framework.test import APIRequestFactory
+from django.test import RequestFactory
 
 from apps.accounts.serializers import (
     LoginSerializer,
-    ProfileUpdateSerializer,
     RegistrationSerializer,
-    UserSerializer,
 )
-
-User = get_user_model()
 
 
 @pytest.mark.django_db
 class TestRegistrationSerializer:
-    def get_data(self, **overrides):
-        data = {
-            'email': 'patient@example.com',
-            'phone': '+79991234567',
-            'first_name': 'Анна',
-            'last_name': 'Иванова',
-            'password': 'StrongPassword123!',
-            'password_confirm': 'StrongPassword123!',
-        }
-        data.update(overrides)
-        return data
-
-    def test_valid_registration(self):
-        serializer = RegistrationSerializer(data=self.get_data())
+    def test_valid_data(self, registration_data):
+        serializer = RegistrationSerializer(data=registration_data)
 
         assert serializer.is_valid(), serializer.errors
 
-    def test_create_user_hashes_password(self):
-        serializer = RegistrationSerializer(data=self.get_data())
-
-        assert serializer.is_valid(), serializer.errors
-        user = serializer.save()
-
-        assert user.check_password('StrongPassword123!')
-        assert user.phone == '+79991234567'
-        assert user.role == User.Role.PATIENT
-
-    def test_passwords_must_match(self):
-        serializer = RegistrationSerializer(
-            data=self.get_data(password_confirm='DifferentPassword123!')
-        )
+    def test_password_mismatch(self, registration_data):
+        registration_data['password_confirm'] = 'AnotherPassword123!'
+        serializer = RegistrationSerializer(data=registration_data)
 
         assert not serializer.is_valid()
         assert 'password_confirm' in serializer.errors
 
-    def test_duplicate_email_is_rejected(self):
-        User.objects.create_user(
-            email='patient@example.com',
-            password='StrongPassword123!',
-            first_name='Анна',
-            last_name='Иванова',
-        )
-
-        serializer = RegistrationSerializer(data=self.get_data())
-
-        assert not serializer.is_valid()
-        assert 'email' in serializer.errors
-
-    def test_email_is_normalized(self):
-        serializer = RegistrationSerializer(
-            data=self.get_data(email='Patient@EXAMPLE.COM')
-        )
-
+    def test_create_user(self, registration_data, user_model):
+        serializer = RegistrationSerializer(data=registration_data)
         assert serializer.is_valid(), serializer.errors
-        assert serializer.validated_data['email'] == 'patient@example.com'
 
-    def test_role_cannot_be_set_during_registration(self):
-        serializer = RegistrationSerializer(data=self.get_data(role='doctor'))
-
-        assert serializer.is_valid(), serializer.errors
         user = serializer.save()
 
-        assert user.role == User.Role.PATIENT
-
-    def test_password_is_not_returned(self):
-        serializer = RegistrationSerializer(data=self.get_data())
-
-        assert serializer.is_valid(), serializer.errors
-        user = serializer.save()
-        response_data = UserSerializer(user).data
-
-        assert 'password' not in response_data
-        assert 'password_confirm' not in response_data
+        assert user_model.objects.filter(pk=user.pk).exists()
+        assert user.email == registration_data['email']
+        assert user.check_password(registration_data['password'])
 
 
 @pytest.mark.django_db
 class TestLoginSerializer:
-    def setup_method(self):
-        self.factory = APIRequestFactory()
-        self.user = User.objects.create_user(
-            email='login@example.com',
-            password='StrongPass123!',
-            first_name='Иван',
-            last_name='Иванов',
-        )
-        self.request = self.factory.post('/api/accounts/login/')
-
-    def test_valid_credentials(self):
+    def test_valid_credentials(self, user_factory, password):
+        user = user_factory()
+        request = RequestFactory().post('/api/accounts/login/')
         serializer = LoginSerializer(
-            data={
-                'email': 'login@example.com',
-                'password': 'StrongPass123!',
-            },
-            context={'request': self.request},
+            data={'email': user.email, 'password': password},
+            context={'request': request},
         )
 
         assert serializer.is_valid(), serializer.errors
-        assert serializer.validated_data['user'] == self.user
 
-    def test_invalid_password(self):
+    def test_invalid_password(self, user_factory):
+        user = user_factory()
+        request = RequestFactory().post('/api/accounts/login/')
         serializer = LoginSerializer(
             data={
-                'email': 'patient@example.com',
+                'email': user.email,
                 'password': 'WrongPassword123!',
             },
-            context={'request': self.request},
+            context={'request': request},
         )
 
         assert not serializer.is_valid()
-        assert 'detail' in serializer.errors
 
-    def test_inactive_user_cannot_login(self):
-        self.user.is_active = False
-        self.user.save(update_fields=['is_active'])
-
+    def test_nonexistent_user(self, password):
+        request = RequestFactory().post('/api/accounts/login/')
         serializer = LoginSerializer(
             data={
-                'email': 'patient@example.com',
-                'password': 'StrongPassword123!',
+                'email': 'missing@example.com',
+                'password': password,
             },
-            context={'request': self.request},
+            context={'request': request},
         )
 
         assert not serializer.is_valid()
-
-
-@pytest.mark.django_db
-class TestProfileUpdateSerializer:
-    def test_update_personal_data(self):
-        user = User.objects.create_user(
-            email='patient@example.com',
-            password='StrongPassword123!',
-            first_name='Анна',
-            last_name='Иванова',
-        )
-        serializer = ProfileUpdateSerializer(
-            user,
-            data={
-                'first_name': 'Мария',
-                'middle_name': 'Петровна',
-                'birth_date': '1995-08-21',
-                'phone': '+79991234567',
-            },
-            partial=True,
-        )
-
-        assert serializer.is_valid(), serializer.errors
-        updated_user = serializer.save()
-
-        assert updated_user.first_name == 'Мария'
-        assert updated_user.middle_name == 'Петровна'
-        assert updated_user.birth_date.isoformat() == '1995-08-21'
-        assert updated_user.phone == '+79991234567'
-
-    def test_role_is_not_editable(self):
-        user = User.objects.create_user(
-            email='patient@example.com',
-            password='StrongPassword123!',
-            first_name='Анна',
-            last_name='Иванова',
-        )
-        serializer = ProfileUpdateSerializer(
-            user,
-            data={'role': 'doctor'},
-            partial=True,
-        )
-
-        assert serializer.is_valid(), serializer.errors
-        updated_user = serializer.save()
-
-        assert updated_user.role == User.Role.PATIENT

@@ -33,7 +33,7 @@ class User(AbstractUser):
         ordering = ('email',)
 
     def __str__(self) -> str:
-        return f'[{self.pk}, {self.email}] - {self.full_name}'
+        return self.email
 
     @property
     def full_name(self):
