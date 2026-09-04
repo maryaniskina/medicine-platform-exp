@@ -8,6 +8,7 @@ from apps.doctors.models import Doctor, DoctorClinic, Specialization
 from apps.doctors.services.schemas import DoctorEvent
 from apps.events.exceptions import PermanentEventError
 from apps.events.models import ProcessedMessage
+from apps.scheduling.models import WeeklySchedule
 
 
 class DoctorEventError(PermanentEventError):
@@ -94,6 +95,55 @@ def update_clinics(doctor, clinics_data):
     ).update(is_active=False)
 
 
+def update_schedules(doctor, schedules_data):
+    assignments = {
+        assignment.clinic.external_id: assignment
+        for assignment in doctor.clinic_assignments.select_related('clinic')
+        .filter(is_active=True)
+    }
+
+    schedule_objects = []
+
+    for schedule_data in schedules_data:
+        clinic_external_id = schedule_data.clinic_external_id
+        assignment = assignments.get(clinic_external_id)
+
+        if assignment is None:
+            raise DoctorEventError(
+                f'Doctor has no active assignment to clinic '
+                f'{clinic_external_id}'
+            )
+
+        schedule = WeeklySchedule(
+            doctor_clinic=assignment,
+            **schedule_data.model_dump(
+                exclude={'clinic_external_id'},
+            ),
+        )
+
+        try:
+            schedule.full_clean(validate_constraints=False)
+        except DjangoValidationError as exc:
+            raise DoctorEventError(str(exc)) from exc
+
+        schedule_objects.append(schedule)
+
+    WeeklySchedule.objects.filter(
+        doctor_clinic__doctor=doctor,
+    ).delete()
+
+    try:
+        with transaction.atomic():
+            for schedule in schedule_objects:
+                schedule.save()
+    except DjangoValidationError as exc:
+        raise DoctorEventError(str(exc)) from exc
+    except IntegrityError as exc:
+        raise DoctorEventError(
+            'Invalid or duplicate doctor schedule'
+        ) from exc
+
+
 @transaction.atomic
 def process_doctor_event(payload: dict) -> bool:
     raw_data = payload.get('data', {})
@@ -115,6 +165,7 @@ def process_doctor_event(payload: dict) -> bool:
             'email',
             'specializations',
             'clinics',
+            'schedules',
         },
         exclude_unset=True,
     )
@@ -179,5 +230,8 @@ def process_doctor_event(payload: dict) -> bool:
 
     if 'clinics' in supplied_fields:
         update_clinics(doctor, data.clinics)
+
+    if 'schedules' in supplied_fields:
+        update_schedules(doctor, data.schedules)
 
     return True
