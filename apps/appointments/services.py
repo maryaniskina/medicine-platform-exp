@@ -98,7 +98,7 @@ def create_appointment(
                 'Время не соответствует расписанию '
                 'или сетке доступных слотов.'
             ),
-    })
+        })
 
     active_statuses = [
         Appointment.Status.BOOKED,
@@ -117,13 +117,18 @@ def create_appointment(
             'start_at': 'Это время уже занято. Выбери другой слот.',
         })
 
-    return Appointment.objects.create(
+    appointment = Appointment.objects.create(
         patient=patient,
         doctor_clinic=doctor_clinic,
         start_at=start_at,
         end_at=end_at,
         patient_comment=patient_comment,
     )
+
+    from apps.notifications.services import notify_appointment_booked
+    notify_appointment_booked(appointment)
+
+    return appointment
 
 
 @transaction.atomic
@@ -162,5 +167,8 @@ def cancel_appointment(*, patient, appointment_id, reason=''):
             'updated_at',
         ],
     )
+
+    from apps.notifications.services import notify_appointment_cancelled
+    notify_appointment_cancelled(appointment)
 
     return appointment

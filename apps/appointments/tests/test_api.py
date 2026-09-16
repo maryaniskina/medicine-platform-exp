@@ -5,6 +5,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.appointments.models import Appointment
+from apps.notifications.models import Notification
 
 BASE_URL = '/api/appointments/'
 
@@ -23,6 +24,7 @@ class TestCreateAppointmentAPI:
         booking_doctor_clinic,
         booking_schedule,
         booking_start,
+        booking_doctor_user,
     ):
         api_client.force_authenticate(booking_patient)
 
@@ -40,6 +42,19 @@ class TestCreateAppointmentAPI:
         assert response.data['status'] == Appointment.Status.BOOKED
         assert response.data['clinic_name'] == booking_doctor_clinic.clinic.name
         assert response.data['patient_comment'] == 'Первичный приём'
+
+        notifications = Notification.objects.filter(
+            appointment_id=response.data['id'],
+            notification_type=Notification.Type.APPOINTMENT_BOOKED,
+        )
+
+        assert notifications.count() == 2
+        assert notifications.filter(
+            recipient=booking_patient,
+        ).exists()
+        assert notifications.filter(
+            recipient=booking_doctor_user,
+        ).exists()
 
     def test_anonymous_user_cannot_create_appointment(
         self,
@@ -148,6 +163,7 @@ class TestCancelAppointmentAPI:
         api_client,
         booking_patient,
         booking_appointment,
+        booking_doctor_user,
     ):
         api_client.force_authenticate(booking_patient)
 
@@ -160,6 +176,19 @@ class TestCancelAppointmentAPI:
         assert response.status_code == 200
         assert response.data['status'] == Appointment.Status.CANCELLED
         assert response.data['cancellation_reason'] == 'Не смогу прийти'
+
+        notifications = Notification.objects.filter(
+            appointment=booking_appointment,
+            notification_type=Notification.Type.APPOINTMENT_CANCELLED,
+        )
+
+        assert notifications.count() == 2
+        assert notifications.filter(
+            recipient=booking_patient,
+        ).exists()
+        assert notifications.filter(
+            recipient=booking_doctor_user,
+        ).exists()
 
     def test_patient_cannot_cancel_another_patients_appointment(
         self,
