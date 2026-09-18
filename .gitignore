@@ -16,3 +16,5 @@ media/
 .vscode/
 .DS_Store
 .ruff_cache/
+
+celerybeat-schedule*
