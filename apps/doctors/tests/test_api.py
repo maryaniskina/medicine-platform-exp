@@ -1,4 +1,8 @@
 import pytest
+from django.core.cache import cache
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
+
 
 @pytest.mark.django_db
 class TestDoctorListAPI:
@@ -240,3 +244,95 @@ class TestDoctorDetailAPI:
         response = api_client.get(f'{doctors_base_url}not-an-id/')
 
         assert response.status_code == 404
+
+
+@pytest.mark.django_db
+class TestSpecializationListAPI:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        cache.clear()
+
+    def test_returns_active_specializations(
+        self,
+        api_client,
+        doctors_base_url,
+        specialization,
+    ):
+        response = api_client.get(
+            f'{doctors_base_url}specializations/',
+        )
+
+        assert response.status_code == 200
+        assert response.data == [
+            {'id': specialization.pk, 'name': specialization.name},
+        ]
+
+    def test_excludes_inactive_specializations(
+        self,
+        api_client,
+        doctors_base_url,
+        specialization_factory,
+    ):
+        specialization_factory(name='Кардиология')
+        specialization_factory(name='Терапия', is_active=False)
+
+        response = api_client.get(
+            f'{doctors_base_url}specializations/',
+        )
+
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]['name'] == 'Кардиология'
+
+    def test_returns_specializations_without_authentication(
+        self,
+        api_client,
+        doctors_base_url,
+        specialization,
+        django_assert_num_queries,
+    ):
+        response = api_client.get(
+            f'{doctors_base_url}specializations/',
+        )
+
+        assert response.status_code == 200
+
+    def test_caches_response(
+        self,
+        api_client,
+        doctors_base_url,
+        specialization,
+    ):
+        url = f'{doctors_base_url}specializations/'
+
+        with CaptureQueriesContext(connection) as first_queries:
+            first_response = api_client.get(url)
+
+        with CaptureQueriesContext(connection) as second_queries:
+            second_response = api_client.get(url)
+
+        assert first_response.status_code == 200
+        assert second_response.status_code == 200
+        assert first_response.data == second_response.data
+        assert len(first_queries) > 0
+        assert len(second_queries) == 0
+
+    def test_invalidates_cache_after_specialization_update(
+        self,
+        api_client,
+        doctors_base_url,
+        specialization,
+    ):
+        url = f'{doctors_base_url}specializations/'
+
+        first_response = api_client.get(url)
+        assert first_response.status_code == 200
+        assert first_response.data[0]['name'] == specialization.name
+
+        specialization.name = 'Новая специализация'
+        specialization.save(update_fields=['name'])
+
+        second_response = api_client.get(url)
+
+        assert second_response.status_code == 200
+        assert second_response.data[0]['name'] == 'Новая специализация'

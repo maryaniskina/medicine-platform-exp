@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.db.models import Q
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
@@ -7,12 +8,15 @@ from drf_spectacular.utils import (
 )
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
 
-from apps.doctors.models import Doctor
+from apps.doctors.models import Doctor, Specialization
 from apps.doctors.serializers import (
     DoctorDetailSerializer,
     DoctorListSerializer,
+    SpecializationSerializer,
 )
+from apps.doctors.signals import SPECIALIZATIONS_CACHE_KEY
 
 
 @extend_schema(
@@ -106,3 +110,28 @@ class DoctorDetailView(RetrieveAPIView):
         'specializations',
         'clinic_assignments__clinic',
     )
+
+
+@extend_schema(
+    tags=['Doctors'],
+    summary='Получить список специализаций',
+    responses={
+        200: SpecializationSerializer(many=True),
+    },
+)
+class SpecializationListView(ListAPIView):
+    serializer_class = SpecializationSerializer
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    pagination_class = None
+    queryset = Specialization.objects.filter(is_active=True)
+
+    def list(self, request, *args, **kwargs):
+        data = cache.get(SPECIALIZATIONS_CACHE_KEY)
+
+        if data is None:
+            queryset = self.get_queryset()
+            data = self.get_serializer(queryset, many=True).data
+            cache.set(SPECIALIZATIONS_CACHE_KEY, data, timeout=300)
+
+        return Response(data)
