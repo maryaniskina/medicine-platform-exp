@@ -99,7 +99,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: >-
         amqp://${RABBITMQ_USER:-medbook}:${RABBITMQ_PASSWORD:-medbook_dev_password}@rabbitmq:5672//
-    command: uv run --frozen celery -A config worker --loglevel=info
+    command: uv run --frozen celery -A config worker --loglevel=info  --without-mingle
     depends_on:
       migrate:
         condition: service_completed_successfully
