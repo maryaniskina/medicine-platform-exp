@@ -253,11 +253,6 @@ def doctors_base_url():
 
 
 @pytest.fixture
-def api_client():
-    return APIClient()
-
-
-@pytest.fixture
 def specialization_factory(db):
     def create_specialization(**overrides):
         data = {

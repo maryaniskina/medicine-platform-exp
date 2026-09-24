@@ -41,8 +41,7 @@ def notify_appointment_booked(appointment):
             appointment=appointment,
             notification_type=Notification.Type.APPOINTMENT_BOOKED,
             title='Новая запись на приём',
-            message=f'Пациент {appointment.patient.full_name} записан '
-            f'на {start_at}.',
+            message=f'Пациент {appointment.patient.full_name} записан на {start_at}.',
         )
 
 
@@ -82,9 +81,7 @@ def create_appointment_reminders(appointments):
         }:
             continue
 
-        start_at = timezone.localtime(appointment.start_at).strftime(
-            '%d.%m.%Y в %H:%M'
-        )
+        start_at = timezone.localtime(appointment.start_at).strftime('%d.%m.%Y в %H:%M')
         doctor_name = str(appointment.doctor_clinic.doctor)
         clinic_name = appointment.doctor_clinic.clinic.name
         recipients = [appointment.patient]

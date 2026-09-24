@@ -92,15 +92,19 @@ class Appointment(models.Model):
             and self.end_at is not None
             and self.start_at >= self.end_at
         ):
-            raise ValidationError({
-                'end_at': 'Окончание приёма должно быть позже начала.',
-            })
+            raise ValidationError(
+                {
+                    'end_at': 'Окончание приёма должно быть позже начала.',
+                }
+            )
 
         if self.start_at is not None and self.start_at <= timezone.now():
             if self._state.adding:
-                raise ValidationError({
-                    'start_at': 'Нельзя записаться на прошедшее время.',
-                })
+                raise ValidationError(
+                    {
+                        'start_at': 'Нельзя записаться на прошедшее время.',
+                    }
+                )
 
     def save(self, *args, **kwargs):
         if self.status == self.Status.CANCELLED and self.cancelled_at is None:

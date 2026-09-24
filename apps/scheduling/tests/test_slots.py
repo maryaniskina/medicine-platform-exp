@@ -29,8 +29,7 @@ class TestGenerateSlots:
         assert slots[0]['start'].time() == time(9, 0)
         assert slots[-1]['start'].time() == time(11, 30)
         assert all(
-            slot['end'] - slot['start'] == timedelta(minutes=30)
-            for slot in slots
+            slot['end'] - slot['start'] == timedelta(minutes=30) for slot in slots
         )
 
     def test_excludes_booked_slot(

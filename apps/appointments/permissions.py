@@ -21,8 +21,4 @@ class IsPatient(BasePermission):
     def has_permission(self, request, view):
         user = request.user
 
-        return (
-            user
-            and user.is_authenticated
-            and user.role == user.Role.PATIENT
-        )
+        return user and user.is_authenticated and user.role == user.Role.PATIENT

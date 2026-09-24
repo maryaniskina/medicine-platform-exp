@@ -18,9 +18,7 @@ class TestNotificationSerializer:
         data = NotificationSerializer(notification).data
 
         assert data['id'] == notification.pk
-        assert data['notification_type'] == (
-            Notification.Type.APPOINTMENT_BOOKED
-        )
+        assert data['notification_type'] == (Notification.Type.APPOINTMENT_BOOKED)
         assert data['title'] == 'Запись создана'
         assert data['message'] == 'Вы записаны на приём'
         assert data['is_read'] is False

@@ -24,20 +24,22 @@ class AvailableSlotsView(APIView):
         query_serializer = SlotQuerySerializer(data=request.query_params)
         query_serializer.is_valid(raise_exception=True)
 
-        doctor_clinic_id = query_serializer.validated_data[
-            'doctor_clinic_id'
-        ]
+        doctor_clinic_id = query_serializer.validated_data['doctor_clinic_id']
         selected_date = query_serializer.validated_data['date']
 
-        doctor_clinic = DoctorClinic.objects.select_related(
-            'doctor',
-            'clinic',
-        ).filter(
-            pk=doctor_clinic_id,
-            is_active=True,
-            doctor__is_active=True,
-            clinic__is_active=True,
-        ).first()
+        doctor_clinic = (
+            DoctorClinic.objects.select_related(
+                'doctor',
+                'clinic',
+            )
+            .filter(
+                pk=doctor_clinic_id,
+                is_active=True,
+                doctor__is_active=True,
+                clinic__is_active=True,
+            )
+            .first()
+        )
 
         if doctor_clinic is None:
             raise NotFound('Врач в указанной клинике не найден.')
@@ -47,8 +49,10 @@ class AvailableSlotsView(APIView):
             selected_date=selected_date,
         )
 
-        return Response({
-            'doctor_clinic_id': doctor_clinic.pk,
-            'date': selected_date,
-            'slots': slots,
-        })
+        return Response(
+            {
+                'doctor_clinic_id': doctor_clinic.pk,
+                'date': selected_date,
+                'slots': slots,
+            }
+        )

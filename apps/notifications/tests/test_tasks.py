@@ -26,7 +26,10 @@ class TestAppointmentReminderTask:
         created_count = tasks.send_appointment_reminders.run()
 
         assert created_count == 1
-        assert Notification.objects.filter(
-            appointment=booking_appointment,
-            notification_type=Notification.Type.APPOINTMENT_REMINDER,
-        ).count() == 1
+        assert (
+            Notification.objects.filter(
+                appointment=booking_appointment,
+                notification_type=Notification.Type.APPOINTMENT_REMINDER,
+            ).count()
+            == 1
+        )

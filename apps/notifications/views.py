@@ -1,4 +1,3 @@
-from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import generics, status
@@ -24,9 +23,11 @@ class NotificationListView(generics.ListAPIView):
         unread = self.request.query_params.get('unread')
         if unread is not None:
             if unread.lower() not in {'true', 'false'}:
-                raise ValidationError({
-                    'unread': 'Используй true или false.',
-                })
+                raise ValidationError(
+                    {
+                        'unread': 'Используй true или false.',
+                    }
+                )
             queryset = queryset.filter(
                 read_at__isnull=unread.lower() == 'true',
             )
@@ -34,9 +35,7 @@ class NotificationListView(generics.ListAPIView):
 
     @extend_schema(
         summary='Список уведомлений',
-        description=(
-            'Возвращает уведомления только текущего пользователя.'
-        ),
+        description=('Возвращает уведомления только текущего пользователя.'),
         responses={200: NotificationSerializer(many=True)},
         tags=['Notifications'],
     )
@@ -46,9 +45,7 @@ class NotificationListView(generics.ListAPIView):
 
 class UnreadNotificationCountView(APIView):
     @extend_schema(
-        summary=(
-            'Количество непрочитанных уведомлений'
-        ),
+        summary=('Количество непрочитанных уведомлений'),
         responses={200: OpenApiTypes.OBJECT},
         tags=['Notifications'],
     )
@@ -72,8 +69,8 @@ class NotificationReadView(APIView):
                 pk=notification_id,
                 recipient=request.user,
             )
-        except Notification.DoesNotExist:
-            raise NotFound('Уведомление не найдено.')
+        except Notification.DoesNotExist as err:
+            raise NotFound('Уведомление не найдено.') from err
 
         if notification.read_at is None:
             notification = mark_notification_as_read(notification=notification)
@@ -82,9 +79,7 @@ class NotificationReadView(APIView):
 
 class MarkAllNotificationsReadView(APIView):
     @extend_schema(
-        summary=(
-            'Отметить все уведомления прочитанными'
-        ),
+        summary=('Отметить все уведомления прочитанными'),
         responses={200: OpenApiTypes.OBJECT},
         tags=['Notifications'],
     )

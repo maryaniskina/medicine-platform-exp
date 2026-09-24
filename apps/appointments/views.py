@@ -78,16 +78,20 @@ class DoctorAppointmentListView(generics.ListAPIView):
         status = self.request.query_params.get('status')
 
         if date_value and (date_from_value or date_to_value):
-            raise ValidationError({
-                'date': 'Укажи дату или диапазон дат, но не оба варианта.',
-            })
+            raise ValidationError(
+                {
+                    'date': 'Укажи дату или диапазон дат, но не оба варианта.',
+                }
+            )
 
         if date_value:
             selected_date = parse_date(date_value)
             if selected_date is None:
-                raise ValidationError({
-                    'date': 'Используй формат YYYY-MM-DD.',
-                })
+                raise ValidationError(
+                    {
+                        'date': 'Используй формат YYYY-MM-DD.',
+                    }
+                )
             queryset = queryset.filter(start_at__date=selected_date)
 
         if date_from_value or date_to_value:
@@ -95,14 +99,18 @@ class DoctorAppointmentListView(generics.ListAPIView):
             date_to = parse_date(date_to_value or '')
 
             if date_from is None or date_to is None:
-                raise ValidationError({
-                    'date_from': 'Укажи корректные date_from и date_to.',
-                })
+                raise ValidationError(
+                    {
+                        'date_from': 'Укажи корректные date_from и date_to.',
+                    }
+                )
 
             if date_from > date_to:
-                raise ValidationError({
-                    'date_to': 'Дата окончания раньше даты начала.',
-                })
+                raise ValidationError(
+                    {
+                        'date_to': 'Дата окончания раньше даты начала.',
+                    }
+                )
 
             queryset = queryset.filter(
                 start_at__date__gte=date_from,
@@ -111,9 +119,11 @@ class DoctorAppointmentListView(generics.ListAPIView):
 
         if status:
             if status not in Appointment.Status.values:
-                raise ValidationError({
-                    'status': 'Неизвестный статус записи.',
-                })
+                raise ValidationError(
+                    {
+                        'status': 'Неизвестный статус записи.',
+                    }
+                )
             queryset = queryset.filter(status=status)
 
         return queryset
@@ -144,9 +154,7 @@ class AppointmentCreateView(generics.GenericAPIView):
 
         appointment = create_appointment(
             patient=request.user,
-            doctor_clinic_id=serializer.validated_data[
-                'doctor_clinic'
-            ].pk,
+            doctor_clinic_id=serializer.validated_data['doctor_clinic'].pk,
             start_at=serializer.validated_data['start_at'],
             patient_comment=serializer.validated_data['patient_comment'],
         )
@@ -256,16 +264,20 @@ class PatientAppointmentListView(generics.ListAPIView):
         status_value = self.request.query_params.get('status')
 
         if date_value and (date_from_value or date_to_value):
-            raise ValidationError({
-                'date': 'Укажи дату или диапазон дат, но не оба варианта.',
-            })
+            raise ValidationError(
+                {
+                    'date': 'Укажи дату или диапазон дат, но не оба варианта.',
+                }
+            )
 
         if date_value:
             selected_date = parse_date(date_value)
             if selected_date is None:
-                raise ValidationError({
-                    'date': 'Используй формат YYYY-MM-DD.',
-                })
+                raise ValidationError(
+                    {
+                        'date': 'Используй формат YYYY-MM-DD.',
+                    }
+                )
             queryset = queryset.filter(start_at__date=selected_date)
 
         if date_from_value or date_to_value:
@@ -273,14 +285,18 @@ class PatientAppointmentListView(generics.ListAPIView):
             date_to = parse_date(date_to_value or '')
 
             if date_from is None or date_to is None:
-                raise ValidationError({
-                    'date_from': 'Укажи корректные date_from и date_to.',
-                })
+                raise ValidationError(
+                    {
+                        'date_from': 'Укажи корректные date_from и date_to.',
+                    }
+                )
 
             if date_from > date_to:
-                raise ValidationError({
-                    'date_to': 'Дата окончания раньше даты начала.',
-                })
+                raise ValidationError(
+                    {
+                        'date_to': 'Дата окончания раньше даты начала.',
+                    }
+                )
 
             queryset = queryset.filter(
                 start_at__date__gte=date_from,
@@ -289,9 +305,11 @@ class PatientAppointmentListView(generics.ListAPIView):
 
         if status_value:
             if status_value not in Appointment.Status.values:
-                raise ValidationError({
-                    'status': 'Неизвестный статус записи.',
-                })
+                raise ValidationError(
+                    {
+                        'status': 'Неизвестный статус записи.',
+                    }
+                )
             queryset = queryset.filter(status=status_value)
 
         return queryset

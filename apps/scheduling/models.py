@@ -75,8 +75,7 @@ class WeeklySchedule(models.Model):
                 start_time__lt=self.end_time,
                 end_time__gt=self.start_time,
             ).filter(
-                Q(valid_until__isnull=True)
-                | Q(valid_until__gte=self.valid_from),
+                Q(valid_until__isnull=True) | Q(valid_until__gte=self.valid_from),
             )
 
             if self.valid_until is not None:
@@ -88,26 +87,29 @@ class WeeklySchedule(models.Model):
                 overlapping = overlapping.exclude(pk=self.pk)
 
             if overlapping.exists():
-                raise ValidationError({
-                    'start_time': (
-                        'Время пересекается с другим расписанием '
-                        'этого врача в клинике.'
-                    ),
-                })
+                raise ValidationError(
+                    {
+                        'start_time': (
+                            'Время пересекается с другим расписанием '
+                            'этого врача в клинике.'
+                        ),
+                    }
+                )
 
-        if (
-            self.valid_until is not None
-            and self.valid_until < self.valid_from
-        ):
-            raise ValidationError({
-                'valid_until': 'Дата окончания не может быть раньше даты начала.',
-            })
+        if self.valid_until is not None and self.valid_until < self.valid_from:
+            raise ValidationError(
+                {
+                    'valid_until': 'Дата окончания не может быть раньше даты начала.',
+                }
+            )
 
         if self.start_time is not None and self.end_time is not None:
             if self.start_time >= self.end_time:
-                raise ValidationError({
-                    'end_time': 'Окончание приёма должно быть позже начала.',
-                })
+                raise ValidationError(
+                    {
+                        'end_time': 'Окончание приёма должно быть позже начала.',
+                    }
+                )
 
     def __str__(self):
         return (

@@ -98,8 +98,9 @@ def update_clinics(doctor, clinics_data):
 def update_schedules(doctor, schedules_data):
     assignments = {
         assignment.clinic.external_id: assignment
-        for assignment in doctor.clinic_assignments.select_related('clinic')
-        .filter(is_active=True)
+        for assignment in doctor.clinic_assignments.select_related('clinic').filter(
+            is_active=True
+        )
     }
 
     schedule_objects = []
@@ -110,8 +111,7 @@ def update_schedules(doctor, schedules_data):
 
         if assignment is None:
             raise DoctorEventError(
-                f'Doctor has no active assignment to clinic '
-                f'{clinic_external_id}'
+                f'Doctor has no active assignment to clinic {clinic_external_id}'
             )
 
         schedule = WeeklySchedule(
@@ -139,9 +139,7 @@ def update_schedules(doctor, schedules_data):
     except DjangoValidationError as exc:
         raise DoctorEventError(str(exc)) from exc
     except IntegrityError as exc:
-        raise DoctorEventError(
-            'Invalid or duplicate doctor schedule'
-        ) from exc
+        raise DoctorEventError('Invalid or duplicate doctor schedule') from exc
 
 
 @transaction.atomic

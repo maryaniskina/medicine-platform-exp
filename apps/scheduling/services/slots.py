@@ -1,4 +1,3 @@
-
 from datetime import date, datetime, time, timedelta
 
 from django.db.models import Q
@@ -14,9 +13,7 @@ def generate_slots(
     doctor_clinic: DoctorClinic,
     selected_date: date,
 ) -> list[dict]:
-    if isinstance(selected_date, datetime) or not isinstance(
-        selected_date, date
-    ):
+    if isinstance(selected_date, datetime) or not isinstance(selected_date, date):
         raise TypeError('selected_date must be a date, not a datetime')
 
     if (
@@ -37,14 +34,17 @@ def generate_slots(
     )
     now = timezone.now()
 
-    schedules = WeeklySchedule.objects.filter(
-        doctor_clinic=doctor_clinic,
-        weekday=selected_date.weekday(),
-        valid_from__lte=selected_date,
-    ).filter(
-        Q(valid_until__isnull=True)
-        | Q(valid_until__gte=selected_date),
-    ).order_by('start_time')
+    schedules = (
+        WeeklySchedule.objects.filter(
+            doctor_clinic=doctor_clinic,
+            weekday=selected_date.weekday(),
+            valid_from__lte=selected_date,
+        )
+        .filter(
+            Q(valid_until__isnull=True) | Q(valid_until__gte=selected_date),
+        )
+        .order_by('start_time')
+    )
     schedules = list(schedules)
 
     appointments = list(
@@ -93,8 +93,7 @@ def generate_slots(
                 continue
 
             is_booked = any(
-                appointment_start < aware_end
-                and appointment_end > aware_start
+                appointment_start < aware_end and appointment_end > aware_start
                 for appointment_start, appointment_end in appointments
             )
 

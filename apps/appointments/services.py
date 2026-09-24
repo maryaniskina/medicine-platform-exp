@@ -26,23 +26,33 @@ def create_appointment(
         raise ValidationError('Записаться на приём может только пациент.')
 
     if not isinstance(start_at, datetime) or not timezone.is_aware(start_at):
-        raise ValidationError({
-            'start_at': 'Укажи дату и время с часовым поясом.',
-        })
+        raise ValidationError(
+            {
+                'start_at': 'Укажи дату и время с часовым поясом.',
+            }
+        )
 
     if start_at <= timezone.now():
-        raise ValidationError({
-            'start_at': 'Нельзя записаться на прошедшее время.',
-        })
+        raise ValidationError(
+            {
+                'start_at': 'Нельзя записаться на прошедшее время.',
+            }
+        )
 
-    doctor_id = DoctorClinic.objects.filter(
-        pk=doctor_clinic_id,
-    ).values_list('doctor_id', flat=True).first()
+    doctor_id = (
+        DoctorClinic.objects.filter(
+            pk=doctor_clinic_id,
+        )
+        .values_list('doctor_id', flat=True)
+        .first()
+    )
 
     if doctor_id is None:
-        raise ValidationError({
-            'doctor_clinic_id': 'Врач в указанной клинике не найден.',
-        })
+        raise ValidationError(
+            {
+                'doctor_clinic_id': 'Врач в указанной клинике не найден.',
+            }
+        )
 
     doctor = Doctor.objects.select_for_update().get(pk=doctor_id)
 
@@ -53,10 +63,12 @@ def create_appointment(
             pk=doctor_clinic_id,
             doctor=doctor,
         )
-    except DoctorClinic.DoesNotExist:
-        raise ValidationError({
-            'doctor_clinic_id': 'Врач в указанной клинике не найден.',
-        })
+    except DoctorClinic.DoesNotExist as err:
+        raise ValidationError(
+            {
+                'doctor_clinic_id': 'Врач в указанной клинике не найден.',
+            }
+        ) from err
 
     if (
         not doctor.is_active
@@ -72,9 +84,11 @@ def create_appointment(
     local_end = timezone.localtime(end_at, local_timezone)
 
     if local_end.date() != local_start.date():
-        raise ValidationError({
-            'start_at': 'Приём не может выходить за пределы рабочего дня.',
-        })
+        raise ValidationError(
+            {
+                'start_at': 'Приём не может выходить за пределы рабочего дня.',
+            }
+        )
 
     schedules = list(
         WeeklySchedule.objects.filter(
@@ -82,8 +96,7 @@ def create_appointment(
             weekday=local_start.weekday(),
             valid_from__lte=local_start.date(),
         ).filter(
-            Q(valid_until__isnull=True)
-            | Q(valid_until__gte=local_start.date()),
+            Q(valid_until__isnull=True) | Q(valid_until__gte=local_start.date()),
         )
     )
 
@@ -93,12 +106,13 @@ def create_appointment(
         end_at=end_at,
         duration_minutes=doctor_clinic.duration_minutes,
     ):
-        raise ValidationError({
-            'start_at': (
-                'Время не соответствует расписанию '
-                'или сетке доступных слотов.'
-            ),
-        })
+        raise ValidationError(
+            {
+                'start_at': (
+                    'Время не соответствует расписанию или сетке доступных слотов.'
+                ),
+            }
+        )
 
     active_statuses = [
         Appointment.Status.BOOKED,
@@ -113,9 +127,11 @@ def create_appointment(
     ).exists()
 
     if has_conflict:
-        raise ValidationError({
-            'start_at': 'Это время уже занято. Выбери другой слот.',
-        })
+        raise ValidationError(
+            {
+                'start_at': 'Это время уже занято. Выбери другой слот.',
+            }
+        )
 
     appointment = Appointment.objects.create(
         patient=patient,
@@ -126,6 +142,7 @@ def create_appointment(
     )
 
     from apps.notifications.services import notify_appointment_booked
+
     notify_appointment_booked(appointment)
 
     return appointment
@@ -138,23 +155,29 @@ def cancel_appointment(*, patient, appointment_id, reason=''):
             pk=appointment_id,
             patient=patient,
         )
-    except Appointment.DoesNotExist:
-        raise ValidationError({
-            'appointment_id': 'Запись не найдена.',
-        })
+    except Appointment.DoesNotExist as err:
+        raise ValidationError(
+            {
+                'appointment_id': 'Запись не найдена.',
+            }
+        ) from err
 
     if appointment.status not in {
         Appointment.Status.BOOKED,
         Appointment.Status.CONFIRMED,
     }:
-        raise ValidationError({
-            'status': 'Эту запись нельзя отменить.',
-        })
+        raise ValidationError(
+            {
+                'status': 'Эту запись нельзя отменить.',
+            }
+        )
 
     if appointment.start_at <= timezone.now():
-        raise ValidationError({
-            'start_at': 'Нельзя отменить уже начавшийся приём.',
-        })
+        raise ValidationError(
+            {
+                'start_at': 'Нельзя отменить уже начавшийся приём.',
+            }
+        )
 
     appointment.status = Appointment.Status.CANCELLED
     appointment.cancellation_reason = reason
@@ -169,6 +192,7 @@ def cancel_appointment(*, patient, appointment_id, reason=''):
     )
 
     from apps.notifications.services import notify_appointment_cancelled
+
     notify_appointment_cancelled(appointment)
 
     return appointment

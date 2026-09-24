@@ -53,10 +53,7 @@ def is_slot_in_schedule(
             schedule.end_time,
         )
 
-        if not (
-            schedule_start <= start
-            and end <= schedule_end
-        ):
+        if not (schedule_start <= start and end <= schedule_end):
             continue
 
         elapsed = start - schedule_start

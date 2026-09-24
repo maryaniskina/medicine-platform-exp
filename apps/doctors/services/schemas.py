@@ -43,10 +43,7 @@ class DoctorScheduleEventData(BaseModel):
         if self.start_time >= self.end_time:
             raise ValueError('Schedule end_time must be later than start_time')
 
-        if (
-            self.valid_until is not None
-            and self.valid_until < self.valid_from
-        ):
+        if self.valid_until is not None and self.valid_until < self.valid_from:
             raise ValueError('Schedule valid_until must not precede valid_from')
 
         return self
