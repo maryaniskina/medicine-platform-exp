@@ -5,4 +5,4 @@ class DoctorsConfig(AppConfig):
     name = 'apps.doctors'
 
     def ready(self):
-        pass
+        import apps.doctors.signals  # noqa: F401

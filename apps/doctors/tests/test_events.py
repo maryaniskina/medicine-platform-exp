@@ -81,9 +81,9 @@ class TestProcessDoctorEvent:
     def test_promotes_existing_patient_without_changing_password(
         self,
         doctor_event,
-        doctor_user_factory,
+        user_factory,
     ):
-        user = doctor_user_factory(
+        user = user_factory(
             email='ivan@example.com',
             password='Strong-test-password-123',
             role='patient',
@@ -178,10 +178,10 @@ class TestProcessDoctorEvent:
     def test_rejects_email_mismatch_for_existing_doctor(
         self,
         doctor_event_factory,
-        doctor_user_factory,
+        user_factory,
         doctor_factory,
     ):
-        user = doctor_user_factory(email='ivan@example.com')
+        user = user_factory(email='ivan@example.com')
         doctor_factory(user=user, email=user.email)
         event = doctor_event_factory(email='another@example.com')
 

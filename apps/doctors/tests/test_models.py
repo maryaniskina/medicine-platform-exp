@@ -21,9 +21,8 @@ class TestSpecializationModel:
     def test_name_must_be_unique(self, specialization_factory):
         specialization_factory(name='Кардиология')
 
-        with pytest.raises(IntegrityError):
-            with transaction.atomic():
-                specialization_factory(name='Кардиология')
+        with pytest.raises(IntegrityError), transaction.atomic():
+            specialization_factory(name='Кардиология')
 
     def test_default_ordering_is_by_name(self, specialization_factory):
         specialization_factory(name='Терапия')
@@ -62,19 +61,17 @@ class TestDoctorModel:
     def test_external_id_must_be_unique(self, doctor_factory):
         doctor_factory(external_id='doctor-001')
 
-        with pytest.raises(IntegrityError):
-            with transaction.atomic():
-                doctor_factory(external_id='doctor-001', first_name='Пётр')
+        with pytest.raises(IntegrityError), transaction.atomic():
+            doctor_factory(external_id='doctor-001', first_name='Пётр')
 
     def test_email_must_be_unique(self, doctor_factory):
         doctor_factory(external_id='doctor-001', email='ivan@example.com')
 
-        with pytest.raises(IntegrityError):
-            with transaction.atomic():
-                doctor_factory(
-                    external_id='doctor-002',
-                    email='ivan@example.com',
-                )
+        with pytest.raises(IntegrityError), transaction.atomic():
+            doctor_factory(
+                external_id='doctor-002',
+                email='ivan@example.com',
+            )
 
     @pytest.mark.parametrize('years', [0, 1, 50, 32767])
     def test_valid_years_of_experience(self, doctor_factory, years):
@@ -116,8 +113,8 @@ class TestDoctorModel:
 
         assert doctors == ['Иванов', 'Иванова', 'Сидоров']
 
-    def test_doctor_can_be_linked_to_user(self, doctor_factory, doctor_user_factory):
-        user = doctor_user_factory()
+    def test_doctor_can_be_linked_to_user(self, doctor_factory, user_factory):
+        user = user_factory()
         doctor = doctor_factory(user=user, email=user.email)
 
         assert doctor.user == user
@@ -126,29 +123,28 @@ class TestDoctorModel:
     def test_user_can_be_linked_to_only_one_doctor(
         self,
         doctor_factory,
-        doctor_user_factory,
+        user_factory,
     ):
-        user = doctor_user_factory()
+        user = user_factory()
         doctor_factory(
             external_id='doctor-001',
             user=user,
             email=user.email,
         )
 
-        with pytest.raises(IntegrityError):
-            with transaction.atomic():
-                doctor_factory(
-                    external_id='doctor-002',
-                    user=user,
-                    email='another@example.com',
-                )
+        with pytest.raises(IntegrityError), transaction.atomic():
+            doctor_factory(
+                external_id='doctor-002',
+                user=user,
+                email='another@example.com',
+            )
 
     def test_user_cannot_be_deleted_while_linked_to_doctor(
         self,
         doctor_factory,
-        doctor_user_factory,
+        user_factory,
     ):
-        user = doctor_user_factory()
+        user = user_factory()
         doctor_factory(user=user, email=user.email)
 
         with pytest.raises(ProtectedError):
@@ -245,9 +241,8 @@ class TestDoctorClinicModel:
         clinic = clinic_factory()
         doctor_clinic_factory(doctor, clinic)
 
-        with pytest.raises(IntegrityError):
-            with transaction.atomic():
-                doctor_clinic_factory(doctor, clinic)
+        with pytest.raises(IntegrityError), transaction.atomic():
+            doctor_clinic_factory(doctor, clinic)
 
     def test_doctor_can_work_in_multiple_clinics(
         self,
