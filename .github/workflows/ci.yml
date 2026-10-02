@@ -66,10 +66,10 @@ jobs:
         run: uv sync --locked --all-groups --no-build
 
       - name: Check lint
-        run: uv run ruff check . --no-build
+        run: uv run ruff check .
 
       - name: Check formatting
-        run: uv run ruff format --check . --no-build
+        run: uv run ruff format --check .
 
       - name: Run tests
         run: uv run --locked --no-sync pytest -v --cov=apps --cov=common --cov=config --cov-report=term-missing --no-build
