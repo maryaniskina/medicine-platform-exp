@@ -1,0 +1,3 @@
+[![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=maryaniskina_medicine-platform-exp&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=maryaniskina_medicine-platform-exp)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=maryaniskina_medicine-platform-exp&metric=coverage)](https://sonarcloud.io/summary/new_code?id=maryaniskina_medicine-platform-exp)
+[![CI](https://github.com/maryaniskina/medicine-platform-exp/actions/workflows/ci.yml/badge.svg)](https://github.com/maryaniskina/medicine-platform-exp/actions/workflows/ci.yml)
