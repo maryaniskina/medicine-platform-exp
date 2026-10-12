@@ -40,12 +40,3 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.ruff.format]
 quote-style = "single"
-
-[tool.sonar]
-organization = "mileevamaria"
-projectKey = "maryaniskina_medicine-platform-exp"
-sources = ["apps", "common", "config"]
-tests = ["apps"]
-testInclusions = ["**/tests.py", "**/test_*.py"]
-exclusions = ["**/migrations/**", "**/__pycache__/**"]
-pythonCoverageReportPaths = ["coverage.xml"]
